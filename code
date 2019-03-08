@@ -1,0 +1,68 @@
+import requests
+import json
+import csv
+import random
+import re
+from datetime import datetime
+import time
+import pandas as pd
+class TM_producs(object):
+    def __init__(self,storename):
+        self.storename = storename
+        self.url = 'https://{}.m.tmall.com'.format(storename)
+        self.headers = {
+            "user-agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.110 Safari/537.36", 
+            "cookie":"_tb_token_=e37ba31ee33de; cookie2=2a952187b9a8278625a943805e205a23; cna=ydj0E2pKX3oCAc9gVoFGM4zJ; hng=CN%7Czh-CN%7CCNY%7C156; tracknick=jay314151; ck1=""; lgc=jay314151; t=8dc229de601aa49485b310ed8563f728; otherx=e%3D1%26p%3D*%26s%3D0%26c%3D0%26f%3D0%26g%3D0%26t%3D0; x=__ll%3D-1%26_ato%3D0; _m_h5_tk=288208895b8e75c2eddb9dad714617df_1549074286990; _m_h5_tk_enc=db2d9ce5984f93e4bff28af557dec6d7; uc1=cookie16=UIHiLt3xCS3yM2h4eKHS9lpEOw%3D%3D&cookie21=W5iHLLyFe3xm&cookie15=URm48syIIVrSKA%3D%3D&existShop=false&pas=0&cookie14=UoTYP62nsOFz6A%3D%3D&tag=8&lng=zh_CN; uc3=vt3=F8dByE7e1TJgTB6s%2BrQ%3D&id2=UoCIR3e%2B3K%2Bzow%3D%3D&nk2=CdKLRGvQPpsy&lg2=UtASsssmOIJ0bQ%3D%3D; _l_g_=Ug%3D%3D; unb=1111570436; cookie1=BqPjkOXkh8D3bk36YKuetbcY3pNytsuaLiaTN%2FRJnaY%3D; login=true; cookie17=UoCIR3e%2B3K%2Bzow%3D%3D; _nk_=jay314151; uss=""; csg=625c5251; skt=b6bfa6f631faf8a8; enc=j7KU2m20MaysVpu1vXDB8wuJ%2F2bwzQG3tS9L1ofABat59m7P2OsJTT0fcKdlPjxOzvuF%2B7DG6AL0hHKm3Y%2FKKA%3D%3D; whl=-1%260%260%260; l=bBNKw6PRvaS3UG3JBOfaCuI8Ln_TiQAb8sPzw4OMEICPOI1yF_UOWZwR7CY2C3MVa6w6R3k6SYCpBbLnHyUB7; isg=BLCw67DpmOeJj0N9xJMKXiBwgX7CUZVX0j_rLKoBQYvjZVAPUwoE0jNfuT2gdUwb"
+        }
+        datenum = datetime.now().strftime('%Y%m%d%H%M')
+        self.filename = '{}_{}.csv'.format(self.storename, datenum)
+        self.get_file()
+
+    def get_file(self):
+        '''创建一个含有标题的表格'''
+        title = ['item_id','price','quantity','sold','title','totalSoldQuantity','url','img','titleUnderIconList']
+        with open(self.filename,'w',newline='') as f:
+            writer = csv.DictWriter(f,fieldnames=title)
+            writer.writeheader()
+        return
+
+    def get_totalpage(self):
+        '''提取总页码数'''
+        num = random.randint(83739921,87739530)
+        endurl = '/shop/shop_auction_search.do?sort=s&p=1&page_size=12&from=h5&ajson=1&_tm_source=tmallsearch&callback=jsonp_{}'
+        url = self.url + endurl.format(num)
+        html = requests.get(url,headers=self.headers).text
+        infos = re.findall('\(({.*})\)',html)[0]
+        infos = json.loads(infos)
+        totalpage = infos.get('total_page')
+        return int(totalpage)
+
+    def get_products(self,page):
+        '''提取单页商品列表'''
+        num = random.randint(83739921, 87739530)
+        endurl = '/shop/shop_auction_search.do?sort=s&p={}&page_size=12&from=h5&ajson=1&_tm_source=tmallsearch&callback=jsonp_{}'
+        url = self.url + endurl.format(page,num)
+        html = requests.get(url, headers=self.headers).text
+        infos = re.findall('\(({.*})\)', html)[0]
+        infos = json.loads(infos)
+        products = infos.get('items')
+        print(products)
+        title = ['item_id', 'price', 'quantity', 'sold', 'title', 'totalSoldQuantity', 'url', 'img', 'titleUnderIconList']
+        with open(self.filename, 'a', newline='') as f:
+            #writer = csv.DictWriter(f, fieldnames=title)
+            #writer.writerows(products)
+            df = pd.DataFrame(products)
+            self.agg = pd.concat((self.agg,df))
+    def main(self):
+        '''循环爬取所有页面宝贝'''
+        self.agg = pd.DataFrame()
+        total_page = self.get_totalpage()
+        for i in range(20,total_page+1):
+            self.get_products(i)
+            print('总计{}页商品，已经提取第{}页'.format(total_page,i))
+            time.sleep(1+random.random())
+        self.agg.to_csv(self.filename,encoding="utf_8_sig")
+if __name__ == '__main__':
+    storename = 'akseries'
+    tm = TM_producs(storename)
+    tm.main()
